@@ -1,0 +1,23 @@
+// 20 hardcoded drivers — also seeded into the `drivers` Supabase table
+export const DRIVERS = [
+  { name: 'Ramesh Kumar',    mobile: '9876543210', car_number: 'KA01AB1234', car_type: 'Sedan' },
+  { name: 'Suresh Patel',   mobile: '9876543211', car_number: 'KA02CD5678', car_type: 'SUV' },
+  { name: 'Vijay Singh',    mobile: '9876543212', car_number: 'KA03EF9012', car_type: 'Hatchback' },
+  { name: 'Anil Sharma',    mobile: '9876543213', car_number: 'MH04GH3456', car_type: 'Sedan' },
+  { name: 'Deepak Verma',   mobile: '9876543214', car_number: 'MH05IJ7890', car_type: 'SUV' },
+  { name: 'Manoj Gupta',    mobile: '9876543215', car_number: 'DL06KL1234', car_type: 'Hatchback' },
+  { name: 'Pradeep Yadav',  mobile: '9876543216', car_number: 'DL07MN5678', car_type: 'Sedan' },
+  { name: 'Sanjay Tiwari',  mobile: '9876543217', car_number: 'UP08OP9012', car_type: 'SUV' },
+  { name: 'Ashok Nair',     mobile: '9876543218', car_number: 'TN09QR3456', car_type: 'Hatchback' },
+  { name: 'Ravi Pillai',    mobile: '9876543219', car_number: 'TN10ST7890', car_type: 'Sedan' },
+  { name: 'Mohan Das',      mobile: '9876543220', car_number: 'KL11UV1234', car_type: 'SUV' },
+  { name: 'Biju Thomas',    mobile: '9876543221', car_number: 'KL12WX5678', car_type: 'Hatchback' },
+  { name: 'Kiran Reddy',    mobile: '9876543222', car_number: 'AP13YZ9012', car_type: 'Sedan' },
+  { name: 'Srinivas Rao',   mobile: '9876543223', car_number: 'AP14AB3456', car_type: 'SUV' },
+  { name: 'Ganesh Iyer',    mobile: '9876543224', car_number: 'GJ15CD7890', car_type: 'Hatchback' },
+  { name: 'Harish Mehta',   mobile: '9876543225', car_number: 'GJ16EF1234', car_type: 'Sedan' },
+  { name: 'Naresh Joshi',   mobile: '9876543226', car_number: 'RJ17GH5678', car_type: 'SUV' },
+  { name: 'Dinesh Rawat',   mobile: '9876543227', car_number: 'RJ18IJ9012', car_type: 'Hatchback' },
+  { name: 'Mahesh Pandey',  mobile: '9876543228', car_number: 'MP19KL3456', car_type: 'Sedan' },
+  { name: 'Rakesh Dubey',   mobile: '9876543229', car_number: 'MP20MN7890', car_type: 'SUV' },
+];

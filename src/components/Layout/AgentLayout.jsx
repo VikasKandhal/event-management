@@ -1,6 +1,6 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.jsx';
-import { Car, Calendar, LogOut } from 'lucide-react';
+import { Car, Calendar, LogOut, LayoutDashboard } from 'lucide-react';
 
 export default function AgentLayout() {
   const { profile, signOut } = useAuth();
@@ -26,6 +26,13 @@ export default function AgentLayout() {
         {/* Nav */}
         <nav className="sidebar-nav">
           <span className="nav-section-label">Navigation</span>
+          <NavLink
+            to="/agent/dashboard"
+            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+          >
+            <LayoutDashboard size={16} />
+            Dashboard
+          </NavLink>
           <NavLink
             to="/agent/events"
             className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}

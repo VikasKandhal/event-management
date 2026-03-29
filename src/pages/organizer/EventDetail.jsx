@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft, Plus, Upload, Calendar, CheckCircle,
-  XCircle, Users, Car, Download
+  XCircle, Users, Car, Download, Pencil, Trash2, FileSpreadsheet
 } from 'lucide-react';
 import StatusBadge from '../../components/common/StatusBadge.jsx';
 import ExportExcelButton from '../../components/common/ExportExcelButton.jsx';
@@ -21,6 +21,10 @@ export default function OrganizerEventDetail() {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editGuest, setEditGuest] = useState(null); // guest to edit
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // guest to delete
+  const [deleteEventConfirm, setDeleteEventConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState('');
@@ -61,6 +65,27 @@ export default function OrganizerEventDetail() {
     fetchAll();
   };
 
+  // Delete guest
+  const handleDeleteGuest = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    const { error } = await supabase.from('guests').delete().eq('id', deleteConfirm.id);
+    if (error) { toast.error(error.message); setDeleting(false); return; }
+    toast.success('Guest deleted');
+    setDeleteConfirm(null);
+    setDeleting(false);
+    fetchAll();
+  };
+
+  // Delete event
+  const handleDeleteEvent = async () => {
+    setDeleting(true);
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) { toast.error(error.message); setDeleting(false); return; }
+    toast.success('Event deleted');
+    navigate('/organizer/events');
+  };
+
   // CSV / Excel bulk upload
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -93,6 +118,19 @@ export default function OrganizerEventDetail() {
     };
     reader.readAsBinaryString(file);
     e.target.value = '';
+  };
+
+  // Download CSV template
+  const downloadTemplate = () => {
+    const headers = ['Guest Name', 'Arrival Date/Time', 'Pickup Location', 'Drop Location', 'Return Required', 'Car Preference'];
+    const sample = ['John Doe', '2025-06-15 10:30', 'Airport Terminal 2', 'Grand Hotel', 'Yes', 'Sedan'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, sample]);
+    const colWidths = headers.map(h => ({ wch: Math.max(h.length, 22) }));
+    ws['!cols'] = colWidths;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+    XLSX.writeFile(wb, 'Guest_Import_Template.xlsx');
+    toast.success('Template downloaded!');
   };
 
   // Filtered guests
@@ -138,12 +176,18 @@ export default function OrganizerEventDetail() {
             drivers={drivers}
             eventName={event?.name}
           />
+          <button className="btn btn-secondary" onClick={downloadTemplate} title="Download CSV/Excel template">
+            <FileSpreadsheet size={15} /> Template
+          </button>
           <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>
             <Upload size={15} /> Import CSV
           </button>
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={handleFileUpload} />
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
             <Plus size={15} /> Add Guest
+          </button>
+          <button className="btn btn-danger btn-sm" onClick={() => setDeleteEventConfirm(true)} title="Delete Event">
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
@@ -240,24 +284,41 @@ export default function OrganizerEventDetail() {
                         ) : <span style={{ color: 'var(--text-subtle)', fontSize: '0.82rem' }}>Not assigned</span>}
                       </td>
                       <td>
-                        {booking?.status === 'Assigned' ? (
-                          <div className="flex gap-2">
-                            <button
-                              className="btn btn-success btn-sm"
-                              onClick={() => updateStatus(booking.id, 'Accepted')}
-                            >
-                              <CheckCircle size={13} /> Accept
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => updateStatus(booking.id, 'Rejected')}
-                            >
-                              <XCircle size={13} /> Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>—</span>
-                        )}
+                        <div className="flex gap-2" style={{ alignItems: 'center' }}>
+                          {booking?.status === 'Assigned' && (
+                            <>
+                              <button
+                                className="btn btn-success btn-sm"
+                                onClick={() => updateStatus(booking.id, 'Accepted')}
+                                title="Accept"
+                              >
+                                <CheckCircle size={13} /> Accept
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => updateStatus(booking.id, 'Rejected')}
+                                title="Reject"
+                              >
+                                <XCircle size={13} /> Reject
+                              </button>
+                            </>
+                          )}
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => setEditGuest(g)}
+                            title="Edit guest"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => setDeleteConfirm(g)}
+                            title="Delete guest"
+                            style={{ color: 'var(--danger)' }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -268,12 +329,71 @@ export default function OrganizerEventDetail() {
         )}
       </div>
 
+      {/* Add Guest Modal */}
       {showAdd && (
         <AddGuestModal
           eventId={id}
           onClose={() => setShowAdd(false)}
           onSaved={fetchAll}
         />
+      )}
+
+      {/* Edit Guest Modal */}
+      {editGuest && (
+        <AddGuestModal
+          eventId={id}
+          guest={editGuest}
+          onClose={() => setEditGuest(null)}
+          onSaved={fetchAll}
+        />
+      )}
+
+      {/* Delete Guest Confirmation */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Delete Guest</span>
+              <button className="modal-close" onClick={() => setDeleteConfirm(null)}><XCircle size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                Are you sure you want to delete <strong style={{ color: 'var(--text)' }}>{deleteConfirm.name}</strong>?
+                This will also remove any associated booking.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleDeleteGuest} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Delete Guest'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Event Confirmation */}
+      {deleteEventConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteEventConfirm(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Delete Event</span>
+              <button className="modal-close" onClick={() => setDeleteEventConfirm(false)}><XCircle size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                Are you sure you want to delete <strong style={{ color: 'var(--text)' }}>{event?.name}</strong>?
+                This will permanently remove all guests and bookings associated with this event.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setDeleteEventConfirm(false)}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleDeleteEvent} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Delete Event'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

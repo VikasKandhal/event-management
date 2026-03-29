@@ -8,8 +8,10 @@ import AgentLayout from './components/Layout/AgentLayout.jsx';
 
 // Pages
 import Login from './pages/Login.jsx';
+import OrganizerDashboard from './pages/organizer/Dashboard.jsx';
 import OrganizerEvents from './pages/organizer/Events.jsx';
 import OrganizerEventDetail from './pages/organizer/EventDetail.jsx';
+import AgentDashboard from './pages/agent/AgentDashboard.jsx';
 import AgentEvents from './pages/agent/AgentEvents.jsx';
 import AgentEventDetail from './pages/agent/AgentEventDetail.jsx';
 
@@ -40,7 +42,7 @@ function ProtectedRoute({ children, role }) {
   }
 
   if (role && profile.role !== role) {
-    return <Navigate to={profile.role === 'organizer' ? '/organizer/events' : '/agent/events'} replace />;
+    return <Navigate to={profile.role === 'organizer' ? '/organizer/dashboard' : '/agent/dashboard'} replace />;
   }
   return children;
 }
@@ -66,7 +68,7 @@ export default function App() {
           path="/login"
           element={
             user
-              ? <Navigate to={profile?.role === 'organizer' ? '/organizer/events' : '/agent/events'} replace />
+              ? <Navigate to={profile?.role === 'organizer' ? '/organizer/dashboard' : '/agent/dashboard'} replace />
               : <Login />
           }
         />
@@ -75,7 +77,8 @@ export default function App() {
         <Route path="/organizer" element={
           <ProtectedRoute role="organizer"><OrganizerLayout /></ProtectedRoute>
         }>
-          <Route index element={<Navigate to="events" replace />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<OrganizerDashboard />} />
           <Route path="events" element={<OrganizerEvents />} />
           <Route path="events/:id" element={<OrganizerEventDetail />} />
         </Route>
@@ -84,7 +87,8 @@ export default function App() {
         <Route path="/agent" element={
           <ProtectedRoute role="agent"><AgentLayout /></ProtectedRoute>
         }>
-          <Route index element={<Navigate to="events" replace />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<AgentDashboard />} />
           <Route path="events" element={<AgentEvents />} />
           <Route path="events/:id" element={<AgentEventDetail />} />
         </Route>
@@ -95,7 +99,7 @@ export default function App() {
           element={
             !user
               ? <Navigate to="/login" replace />
-              : <Navigate to={profile?.role === 'organizer' ? '/organizer/events' : '/agent/events'} replace />
+              : <Navigate to={profile?.role === 'organizer' ? '/organizer/dashboard' : '/agent/dashboard'} replace />
           }
         />
       </Routes>

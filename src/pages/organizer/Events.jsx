@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import toast from 'react-hot-toast';
-import { Plus, Calendar, Users, ChevronRight, X } from 'lucide-react';
+import { Plus, Calendar, Users, ChevronRight, X, Trash2, XCircle } from 'lucide-react';
 
 export default function OrganizerEvents() {
   const { user } = useAuth();
@@ -13,6 +13,8 @@ export default function OrganizerEvents() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm]   = useState({ name: '', date: '' });
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -45,6 +47,17 @@ export default function OrganizerEvents() {
     setSaving(false);
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.from('events').delete().eq('id', deleteTarget.id);
+    if (error) { toast.error(error.message); setDeleting(false); return; }
+    toast.success('Event deleted');
+    setDeleteTarget(null);
+    setDeleting(false);
+    fetchEvents();
+  };
+
   return (
     <>
       <div className="page-header">
@@ -75,7 +88,17 @@ export default function OrganizerEvents() {
           <div className="events-grid">
             {events.map(ev => (
               <div key={ev.id} className="event-card" onClick={() => navigate(`/organizer/events/${ev.id}`)}>
-                <div className="event-card-name">{ev.name}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="event-card-name">{ev.name}</div>
+                  <button
+                    className="btn btn-secondary btn-xs"
+                    style={{ color: 'var(--danger)', padding: '4px 6px', flexShrink: 0 }}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(ev); }}
+                    title="Delete event"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
                 <div className="event-card-date">
                   <Calendar size={13} />
                   {new Date(ev.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -93,6 +116,7 @@ export default function OrganizerEvents() {
         )}
       </div>
 
+      {/* Create Event Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -120,6 +144,30 @@ export default function OrganizerEvents() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Event Confirmation */}
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Delete Event</span>
+              <button className="modal-close" onClick={() => setDeleteTarget(null)}><XCircle size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                Are you sure you want to delete <strong style={{ color: 'var(--text)' }}>{deleteTarget.name}</strong>?
+                This will permanently remove all guests and bookings.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Delete Event'}
+              </button>
+            </div>
           </div>
         </div>
       )}

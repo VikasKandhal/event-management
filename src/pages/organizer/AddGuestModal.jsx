@@ -10,8 +10,22 @@ const INITIAL = {
   drop_location: '', return_required: false, car_preference: 'Sedan',
 };
 
-export default function AddGuestModal({ eventId, onClose, onSaved }) {
-  const [form, setForm]   = useState(INITIAL);
+export default function AddGuestModal({ eventId, guest, onClose, onSaved }) {
+  const isEdit = !!guest;
+  const [form, setForm] = useState(
+    isEdit
+      ? {
+          name: guest.name || '',
+          arrival_datetime: guest.arrival_datetime
+            ? guest.arrival_datetime.slice(0, 16) // format for datetime-local
+            : '',
+          pickup_location: guest.pickup_location || '',
+          drop_location: guest.drop_location || '',
+          return_required: guest.return_required || false,
+          car_preference: guest.car_preference || 'Sedan',
+        }
+      : INITIAL
+  );
   const [saving, setSaving] = useState(false);
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -19,17 +33,31 @@ export default function AddGuestModal({ eventId, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase.from('guests').insert({
-      event_id: eventId,
+
+    const payload = {
       name: form.name.trim(),
       arrival_datetime: form.arrival_datetime,
       pickup_location: form.pickup_location.trim(),
       drop_location: form.drop_location.trim(),
       return_required: form.return_required,
       car_preference: form.car_preference,
-    });
-    if (error) { toast.error(error.message); setSaving(false); return; }
-    toast.success('Guest added!');
+    };
+
+    if (isEdit) {
+      const { error } = await supabase
+        .from('guests')
+        .update(payload)
+        .eq('id', guest.id);
+      if (error) { toast.error(error.message); setSaving(false); return; }
+      toast.success('Guest updated!');
+    } else {
+      const { error } = await supabase.from('guests').insert({
+        event_id: eventId,
+        ...payload,
+      });
+      if (error) { toast.error(error.message); setSaving(false); return; }
+      toast.success('Guest added!');
+    }
     onSaved();
     onClose();
   };
@@ -38,7 +66,7 @@ export default function AddGuestModal({ eventId, onClose, onSaved }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Add Guest</span>
+          <span className="modal-title">{isEdit ? 'Edit Guest' : 'Add Guest'}</span>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -89,7 +117,7 @@ export default function AddGuestModal({ eventId, onClose, onSaved }) {
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Add Guest'}
+              {saving ? 'Saving…' : isEdit ? 'Update Guest' : 'Add Guest'}
             </button>
           </div>
         </form>

@@ -20,6 +20,7 @@ export default function OrganizerEventDetail() {
   const [bookings, setBookings] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editGuest, setEditGuest] = useState(null); // guest to edit
   const [deleteConfirm, setDeleteConfirm] = useState(null); // guest to delete
@@ -33,7 +34,7 @@ export default function OrganizerEventDetail() {
   const fileRef = useRef();
 
   const fetchAll = async () => {
-    setLoading(true);
+    if (initialLoad) setLoading(true);
     const [evRes, gRes, bRes, dRes] = await Promise.all([
       supabase.from('events').select('*').eq('id', id).single(),
       supabase.from('guests').select('*').eq('event_id', id).order('created_at'),
@@ -46,6 +47,7 @@ export default function OrganizerEventDetail() {
     setBookings(bRes.data || []);
     setDrivers(dRes.data || []);
     setLoading(false);
+    setInitialLoad(false);
   };
 
   useEffect(() => { fetchAll(); }, [id]);

@@ -24,46 +24,30 @@ export default function AgentDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        // All events with guest counts
-        const { data: events } = await supabase
-          .from('events')
-          .select('*, guests(count)')
-          .order('date', { ascending: true });
+        // Fetch events and all bookings in parallel (single round-trip)
+        const [{ data: events }, { data: allBookingsRaw }] = await Promise.all([
+          supabase
+            .from('events')
+            .select('*, guests(count)')
+            .order('date', { ascending: true }),
+          supabase
+            .from('bookings')
+            .select('id, status, event_id, guest_id, assigned_at, guests(name, event_id), drivers(name)')
+            .order('assigned_at', { ascending: false }),
+        ]);
 
         const allEvents = events || [];
-        const eventIds = allEvents.map(e => e.id);
-
-        // All bookings
-        let allBookings = [];
-        if (eventIds.length > 0) {
-          const { data: bookings } = await supabase
-            .from('bookings')
-            .select('*, guests(name, event_id), drivers(name)')
-            .in('event_id', eventIds)
-            .order('assigned_at', { ascending: false })
-            .limit(10);
-          allBookings = bookings || [];
-        }
-
-        // All bookings for counts
-        let allBookingsForCounts = [];
-        if (eventIds.length > 0) {
-          const { data: bc } = await supabase
-            .from('bookings')
-            .select('status, event_id, guest_id')
-            .in('event_id', eventIds);
-          allBookingsForCounts = bc || [];
-        }
+        const allBookings = allBookingsRaw || [];
 
         let totalGuests = 0;
         allEvents.forEach(e => { totalGuests += e.guests?.[0]?.count ?? 0; });
 
         const counts = { Assigned: 0, Accepted: 0, Rejected: 0 };
-        allBookingsForCounts.forEach(b => {
+        allBookings.forEach(b => {
           counts[b.status] = (counts[b.status] || 0) + 1;
         });
 
-        const bookedGuestIds = new Set(allBookingsForCounts.map(b => b.guest_id));
+        const bookedGuestIds = new Set(allBookings.map(b => b.guest_id));
         const unbookedCount = totalGuests - bookedGuestIds.size;
         const needsAssignment = unbookedCount + (counts.Rejected || 0);
 
@@ -78,7 +62,7 @@ export default function AgentDashboard() {
 
         // Events that have unassigned guests (urgent events)
         const bookingCountByEvent = {};
-        allBookingsForCounts.forEach(b => {
+        allBookings.forEach(b => {
           if (!bookingCountByEvent[b.event_id]) bookingCountByEvent[b.event_id] = { total: 0, rejected: 0 };
           bookingCountByEvent[b.event_id].total += 1;
           if (b.status === 'Rejected') bookingCountByEvent[b.event_id].rejected += 1;

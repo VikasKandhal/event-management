@@ -16,6 +16,7 @@ export default function AgentEventDetail() {
   const [guests, setGuests]   = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   const [assignTarget, setAssignTarget] = useState(null); // { guest, booking|null }
 
@@ -24,7 +25,7 @@ export default function AgentEventDetail() {
   const [filterCar, setFilterCar]       = useState('');
 
   const fetchAll = async () => {
-    setLoading(true);
+    if (initialLoad) setLoading(true);
     const [evRes, gRes, bRes] = await Promise.all([
       supabase.from('events').select('*').eq('id', id).single(),
       supabase.from('guests').select('*').eq('event_id', id).order('arrival_datetime'),
@@ -35,6 +36,7 @@ export default function AgentEventDetail() {
     setGuests(gRes.data || []);
     setBookings(bRes.data || []);
     setLoading(false);
+    setInitialLoad(false);
   };
 
   useEffect(() => { fetchAll(); }, [id]);

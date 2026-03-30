@@ -34,17 +34,23 @@ export default function OrganizerEvents() {
     e.preventDefault();
     if (!form.name.trim() || !form.date) { toast.error('Fill in all fields'); return; }
     setSaving(true);
-    const { error } = await supabase.from('events').insert({
-      name: form.name.trim(),
-      date: form.date,
-      organizer_id: user.id,
-    });
-    if (error) { toast.error(error.message); setSaving(false); return; }
-    toast.success('Event created!');
-    setShowModal(false);
-    setForm({ name: '', date: '' });
-    fetchEvents();
-    setSaving(false);
+    try {
+      const { error } = await supabase.from('events').insert({
+        name: form.name.trim(),
+        date: form.date,
+        organizer_id: user.id,
+      });
+      if (error) { toast.error(error.message); return; }
+      toast.success('Event created!');
+      setShowModal(false);
+      setForm({ name: '', date: '' });
+      fetchEvents();
+    } catch (err) {
+      console.error('Create event error:', err);
+      toast.error('Request timed out — please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {

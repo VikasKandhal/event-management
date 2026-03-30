@@ -25,7 +25,7 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        // Fetch all organizer events with guest counts
+        // Fetch events first to get IDs
         const { data: events, error: evErr } = await supabase
           .from('events')
           .select('*, guests(count)')
@@ -34,8 +34,10 @@ export default function OrganizerDashboard() {
 
         if (evErr) { toast.error(evErr.message); return; }
 
-        // Fetch all bookings for organizer's events
-        const eventIds = (events || []).map(e => e.id);
+        const allEvents = events || [];
+        const eventIds = allEvents.map(e => e.id);
+
+        // Fetch bookings in parallel (only if events exist)
         let allBookings = [];
         if (eventIds.length > 0) {
           const { data: bookings } = await supabase
@@ -45,21 +47,15 @@ export default function OrganizerDashboard() {
           allBookings = bookings || [];
         }
 
-        // Fetch total guests count
         let totalGuests = 0;
-        (events || []).forEach(e => {
-          totalGuests += e.guests?.[0]?.count ?? 0;
-        });
+        allEvents.forEach(e => { totalGuests += e.guests?.[0]?.count ?? 0; });
 
-        // Count statuses
         const counts = { Pending: 0, Assigned: 0, Accepted: 0, Rejected: 0 };
         allBookings.forEach(b => { counts[b.status] = (counts[b.status] || 0) + 1; });
-        // Pending = total guests minus booked guests
         const bookedGuests = allBookings.length;
-        counts.Pending = totalGuests - bookedGuests + (counts.Pending || 0);
 
         setStats({
-          totalEvents: (events || []).length,
+          totalEvents: allEvents.length,
           totalGuests,
           pending: totalGuests - bookedGuests,
           assigned: counts.Assigned,
@@ -67,7 +63,7 @@ export default function OrganizerDashboard() {
           rejected: counts.Rejected,
         });
 
-        setRecentEvents((events || []).slice(0, 5));
+        setRecentEvents(allEvents.slice(0, 5));
       } catch {
         toast.error('Failed to load dashboard');
       } finally {

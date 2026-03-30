@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './contexts/AuthContext.jsx';
@@ -16,27 +17,41 @@ import AgentEvents from './pages/agent/AgentEvents.jsx';
 import AgentEventDetail from './pages/agent/AgentEventDetail.jsx';
 
 function ProtectedRoute({ children, role }) {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut, refetchProfile } = useAuth();
+  const [retrying, setRetrying] = useState(false);
+
   if (loading) return <div className="loading-center"><div className="spinner" /></div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  // If profile hasn't loaded yet (DB row missing), show a helpful error + sign out button
+  // If profile hasn't loaded yet, offer retry before giving up
   if (!profile) {
     return (
       <div className="loading-center" style={{ flexDirection: 'column', gap: 16, textAlign: 'center', padding: 40 }}>
         <div style={{ fontSize: '2rem' }}>⚠️</div>
         <h3>Profile not found</h3>
         <p style={{ color: 'var(--text-muted)', maxWidth: 360 }}>
-          Your account exists but no profile row was found.<br />
-          Please make sure the SQL migration has been run in Supabase, then sign out and sign back in.
+          Your account exists but the profile could not be loaded.<br />
+          This might be a temporary connection issue — try again.
         </p>
-        <button
-          className="btn btn-primary"
-          onClick={() => signOut()}
-          style={{ marginTop: 8 }}
-        >
-          Sign Out
-        </button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          <button
+            className="btn btn-primary"
+            disabled={retrying}
+            onClick={async () => {
+              setRetrying(true);
+              await refetchProfile();
+              setRetrying(false);
+            }}
+          >
+            {retrying ? 'Retrying…' : 'Retry'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => signOut()}
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
     );
   }

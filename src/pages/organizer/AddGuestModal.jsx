@@ -43,23 +43,30 @@ export default function AddGuestModal({ eventId, guest, onClose, onSaved }) {
       car_preference: form.car_preference,
     };
 
-    if (isEdit) {
-      const { error } = await supabase
-        .from('guests')
-        .update(payload)
-        .eq('id', guest.id);
-      if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success('Guest updated!');
-    } else {
-      const { error } = await supabase.from('guests').insert({
-        event_id: eventId,
-        ...payload,
-      });
-      if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success('Guest added!');
+    try {
+      if (isEdit) {
+        const { error } = await supabase
+          .from('guests')
+          .update(payload)
+          .eq('id', guest.id);
+        if (error) { toast.error(error.message); return; }
+        toast.success('Guest updated!');
+      } else {
+        const { error } = await supabase.from('guests').insert({
+          event_id: eventId,
+          ...payload,
+        });
+        if (error) { toast.error(error.message); return; }
+        toast.success('Guest added!');
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      console.error('Save guest error:', err);
+      toast.error('Request timed out — please try again.');
+    } finally {
+      setSaving(false);
     }
-    onSaved();
-    onClose();
   };
 
   return (

@@ -12,70 +12,103 @@ export function AuthProvider({ children }) {
 
   const fetchProfile = async (uid, retries = 3) => {
     for (let i = 0; i < retries; i++) {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', uid)
+          .maybeSingle();
 
-      if (error) {
-        console.warn(`fetchProfile attempt ${i + 1} failed:`, error.message);
+        if (error) {
+          console.warn(`fetchProfile attempt ${i + 1} failed:`, error.message);
+        }
+
+        if (data) {
+          if (mountedRef.current) setProfile(data);
+          return data;
+        }
+      } catch (err) {
+        console.warn(`fetchProfile attempt ${i + 1} threw:`, err.message);
       }
 
-      if (data) {
-        if (mountedRef.current) setProfile(data);
-        return data;
-      }
-
-      // Wait before retrying (only if not last attempt)
       if (i < retries - 1) {
-        await new Promise(res => setTimeout(res, 400));
+        await new Promise(res => setTimeout(res, 500 * Math.pow(2, i)));
       }
     }
 
-    console.warn('fetchProfile: profile not found after retries for uid:', uid);
-    if (mountedRef.current) setProfile(null);
-    return null;
+    // Profile row doesn't exist — auto-create it from auth user metadata
+    console.warn('fetchProfile: profile not found, attempting auto-create for uid:', uid);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const meta = authUser?.user_metadata || {};
+      const fullName = meta.full_name || meta.name || authUser?.email?.split('@')[0] || 'User';
+      const role = meta.role || 'organizer';
+
+      const { data: newProfile, error: upsertErr } = await supabase
+        .from('profiles')
+        .upsert({ id: uid, full_name: fullName, role }, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (upsertErr) {
+        console.error('Auto-create profile failed:', upsertErr.message);
+        if (mountedRef.current) setProfile(null);
+        return null;
+      }
+
+      console.log('Auto-created profile:', newProfile);
+      if (mountedRef.current) setProfile(newProfile);
+      return newProfile;
+    } catch (err) {
+      console.error('Auto-create profile threw:', err);
+      if (mountedRef.current) setProfile(null);
+      return null;
+    }
+  };
+
+  // Exposed so UI can offer a "Retry" button
+  const refetchProfile = async () => {
+    if (!user) return;
+    setLoading(true);
+    await fetchProfile(user.id);
+    setLoading(false);
   };
 
   useEffect(() => {
     mountedRef.current = true;
 
-    const init = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error('getSession error:', error.message);
-          return;
-        }
-
-        if (!session?.user) {
-          if (mountedRef.current) {
-            setUser(null);
-            setProfile(null);
-          }
-          return;
-        }
-
-        if (mountedRef.current) setUser(session.user);
-        await fetchProfile(session.user.id);
-      } catch (err) {
-        console.error('INIT ERROR:', err);
-      } finally {
-        // Always stop the loading spinner, regardless of success/failure
-        if (mountedRef.current) setLoading(false);
+    // Safety-net: if auth hasn't resolved in 8 seconds, force loading off
+    // (shows login page so the user isn't stuck)
+    const safetyTimeout = setTimeout(() => {
+      if (mountedRef.current && loading) {
+        console.warn('Auth safety timeout — forcing loading=false');
+        setLoading(false);
       }
-    };
+    }, 8000);
 
-    init();
-
+    // Use onAuthStateChange as the SOLE source of truth.
+    // Supabase fires INITIAL_SESSION immediately (sync) with the cached session,
+    // so we don't need getSession() which can hang on token refresh.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        console.log('Auth event:', event);
         try {
           if (session?.user) {
             if (mountedRef.current) setUser(session.user);
-            await fetchProfile(session.user.id);
+
+            // Fetch profile with a 10s timeout so it can never hang forever
+            const profilePromise = fetchProfile(session.user.id);
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+            );
+
+            try {
+              await Promise.race([profilePromise, timeoutPromise]);
+            } catch (err) {
+              console.warn('Profile fetch timed out or errored:', err.message);
+              // Profile couldn't be loaded, but user IS authenticated
+              // — the ProtectedRoute will show the Retry button
+            }
           } else {
             if (mountedRef.current) {
               setUser(null);
@@ -85,6 +118,7 @@ export function AuthProvider({ children }) {
         } catch (err) {
           console.error('AUTH CHANGE ERROR:', err);
         } finally {
+          clearTimeout(safetyTimeout);
           if (mountedRef.current) setLoading(false);
         }
       }
@@ -92,6 +126,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       mountedRef.current = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -153,7 +188,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, refetchProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -59,26 +59,33 @@ export default function AssignDriverModal({ guest, booking, onClose, onSaved }) 
   const handleAssign = async () => {
     if (!selected) { toast.error('Please select a driver'); return; }
     setSaving(true);
-    if (booking?.id) {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ driver_id: selected, status: 'Assigned', assigned_by: user.id, updated_at: new Date().toISOString() })
-        .eq('id', booking.id);
-      if (error) { toast.error(error.message); setSaving(false); return; }
-    } else {
-      const { error } = await supabase.from('bookings').insert({
-        guest_id: guest.id,
-        event_id: guest.event_id,
-        driver_id: selected,
-        status: 'Assigned',
-        assigned_by: user.id,
-        assigned_at: new Date().toISOString(),
-      });
-      if (error) { toast.error(error.message); setSaving(false); return; }
+    try {
+      if (booking?.id) {
+        const { error } = await supabase
+          .from('bookings')
+          .update({ driver_id: selected, status: 'Assigned', assigned_by: user.id, updated_at: new Date().toISOString() })
+          .eq('id', booking.id);
+        if (error) { toast.error(error.message); return; }
+      } else {
+        const { error } = await supabase.from('bookings').insert({
+          guest_id: guest.id,
+          event_id: guest.event_id,
+          driver_id: selected,
+          status: 'Assigned',
+          assigned_by: user.id,
+          assigned_at: new Date().toISOString(),
+        });
+        if (error) { toast.error(error.message); return; }
+      }
+      toast.success('Driver assigned!');
+      onSaved();
+      onClose();
+    } catch (err) {
+      console.error('Assign driver error:', err);
+      toast.error('Request timed out — please try again.');
+    } finally {
+      setSaving(false);
     }
-    toast.success('Driver assigned!');
-    onSaved();
-    onClose();
   };
 
   const typeColors = { Hatchback: 'var(--success)', Sedan: 'var(--secondary)', SUV: 'var(--warning)' };
